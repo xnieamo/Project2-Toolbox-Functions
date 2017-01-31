@@ -7,13 +7,15 @@ import Framework from './framework'
 var settings = {
 	density : 40.0,
 	bias : 0.5,
-	nFeathers : 40,
+	nFeathers : 50,
 	speed : 100,
+    speedF : 100,
 	scale : 1,
 	size : 1,
     wind : 0,
     shoulderCurve : 0.5,
-	color : [255, 255, 255]
+	outerColor : [255, 255, 255],
+    innerColor : [255, 128, 128]
 };
 
 var time = 0;
@@ -24,8 +26,14 @@ function bias (b, t) {
 
 // Basic Lambert white
 var lambertWhite = new THREE.MeshLambertMaterial({ 
-	color: new THREE.Vector3(settings.color[0]/255, settings.color[1]/255, settings.color[2]/255),
+	color: new THREE.Vector3(settings.outerColor[0]/255, settings.outerColor[1]/255, settings.outerColor[2]/255),
  	side: THREE.DoubleSide 
+});
+
+// Basic Lambert white
+var lambertGrey = new THREE.MeshLambertMaterial({ 
+    color: new THREE.Vector3(settings.innerColor[0]/255, settings.innerColor[1]/255, settings.innerColor[2]/255),
+    side: THREE.DoubleSide 
 });
 
 // Config for parts of the wing
@@ -47,7 +55,7 @@ var wingConfig = {
             return t;
         },
         wingy : function() {
-            return (-Math.sin((new Date()).getTime() / settings.speed) + 1)/2;
+            return (-Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
         }
     },
     shoulder : {
@@ -61,16 +69,125 @@ var wingConfig = {
             return 0;
         },
         scale : function(t) {
-            return 1;
+            return 1 - Math.abs(settings.shoulderCurve * t * t);
         },
         wingy : function() {
-            return (Math.sin((new Date()).getTime() / settings.speed) + 1)/2;
+            return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
         }
-    }
+    },
+    shoulderInside : {
+        part : 'shoulderInside',
+        pos : [0, 0.2, 1],
+        colorMat : lambertGrey,
+        x : function(b, t) {
+            return bias(b, 1) - settings.shoulderCurve * t * t;
+        },
+        rotation : function(t) {
+            return 0;
+        },
+        scale : function(t) {
+            return 0.5 - Math.abs(settings.shoulderCurve * t * t);
+        },
+        wingy : function() {
+            return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
+    tipInside : {
+        part : 'tipInside',
+        pos : [0, 0.2, 0],
+        colorMat : lambertGrey,
+        x : function(b, t) {
+            return bias(b, t);
+        },
+        rotation : function(t) {
+            return Math.asin(1 - t);
+        },
+        scale : function(t) {
+            return t * 0.5;
+        },
+        wingy : function() {
+            return (-Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
+    tipL : {
+        part : 'tipL',
+        pos : [0, 0, 4],
+        colorMat : lambertWhite,
+        x : function(b, t) {
+            return bias(b, (1-t));
+        },
+        rotation : function(t) {
+            return Math.asin(1 - (1-t));
+        },
+        scale : function(t) {
+            return (1-t);
+        },
+        wingy : function() {
+            return (-Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
+    shoulderL : {
+        part : 'shoulderL',
+        pos : [0, 0, 3],
+        colorMat : lambertWhite,
+        x : function(b, t) {
+            return bias(b, 1) - settings.shoulderCurve * (1-t) * (1-t);
+        },
+        rotation : function(t) {
+            return 0;
+        },
+        scale : function(t) {
+            return 1 - Math.abs(settings.shoulderCurve * (1-t) * (1-t));
+        },
+        wingy : function() {
+            return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
+    shoulderInsideL : {
+        part : 'shoulderInsideL',
+        pos : [0, 0.2, 3],
+        colorMat : lambertGrey,
+        x : function(b, t) {
+            return bias(b, 1) - settings.shoulderCurve * (1-t) * (1-t);
+        },
+        rotation : function(t) {
+            return 0;
+        },
+        scale : function(t) {
+            return 0.5 - Math.abs(settings.shoulderCurve * (1-t) * (1-t));
+        },
+        wingy : function() {
+            return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
+    tipInsideL : {
+        part : 'tipInsideL',
+        pos : [0, 0.2, 4],
+        colorMat : lambertGrey,
+        x : function(b, t) {
+            return bias(b, (1-t));
+        },
+        rotation : function(t) {
+            return Math.asin(1 - (1-t));
+        },
+        scale : function(t) {
+            return (1-t) * 0.5;
+        },
+        wingy : function() {
+            return (-Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
+        }
+    },
 };
 
 var wing = [wingConfig.shoulder, 
-            wingConfig.tip];
+            wingConfig.tip,
+            wingConfig.shoulderInside,
+            wingConfig.tipInside,
+            wingConfig.shoulderL,
+            wingConfig.tipL,
+            wingConfig.shoulderInsideL,
+            wingConfig.tipInsideL,];
+
 
 // called after the scene loads
 function onLoad(framework) {
@@ -125,8 +242,6 @@ function onLoad(framework) {
                 scene.add(featherMesh);
             }
         }
-
-
     });
 
     // set camera position
@@ -142,11 +257,13 @@ function onLoad(framework) {
         camera.updateProjectionMatrix();
     });
 
-    gui.add(settings, 'density', 0.1, 40);
+    gui.add(settings, 'density', 0.1, settings.nFeathers);
 
     gui.add(settings, 'bias', 0.05, 1);
 
     gui.add(settings, 'speed', 1, 1000);
+
+    gui.add(settings, 'speedF', 1, 1000);
 
     gui.add(settings, 'scale', 0.1, 50);
 
@@ -154,12 +271,17 @@ function onLoad(framework) {
 
     gui.add(settings, 'wind', 0, 90);
 
-    gui.add(settings, 'shoulderCurve', -1, 1);
+    gui.add(settings, 'shoulderCurve', -0.5, 0.5);
 
     // Color menu
-	gui.addColor(settings, 'color').onChange(function(newVal){
+	gui.addColor(settings, 'outerColor').onChange(function(newVal){
 		lambertWhite.color = new THREE.Vector3(newVal[0]/255, newVal[1]/255, newVal[2]/255);
 	});
+
+        // Color menu
+    gui.addColor(settings, 'innerColor').onChange(function(newVal){
+        lambertGrey.color = new THREE.Vector3(newVal[0]/255, newVal[1]/255, newVal[2]/255);
+    });
 }
 
 // called on frame updates
@@ -174,24 +296,25 @@ function onUpdate(framework) {
         	var feather = framework.scene.getObjectByName(wingConfig.name(w.part, i));    
     	    if (feather !== undefined) {
     	    	
-    	    	// Simply flap wing
+    	    	// Update feather position
     	        var z = 1 / settings.density * i;
             	var x = w.x(settings.bias, z);
             	feather.position.z = z + w.pos[2];
                 feather.position.x = x + w.pos[0];
 
-                if (j == 0) {
+                // Joint flap
+                if (j == 0 || j == 2) {
                     feather.position.y = shoulderPos * z + (1-z) * tipPos;
+                } else if (j == 4 || j == 6) {
+                    feather.position.y = (1-z) * shoulderPos + z * tipPos;
                 } else {
                     feather.position.y = w.wingy();
                 }
                 
-            	
-
+            	// Length
             	feather.scale.x = w.scale(z) * settings.size;
-
-            	var maxZ = settings.nFeathers / settings.density;
             	
+                // Simple flap
             	var date = new Date();
     	    	feather.rotation.z = (Math.sin(date.getTime() / settings.speed) * settings.scale * Math.PI / 180);  
 
@@ -200,7 +323,7 @@ function onUpdate(framework) {
                 feather.rotation.y = settings.wind * Math.random() * Math.PI / 180;
     	        	
     		    if (i < settings.density) {
-    				feather.rotation.y = w.rotation(z);
+    				// feather.rotation.y = w.rotation(z);
     		        feather.visible = true; 
     	    	} else {
     	    		feather.visible = false;
