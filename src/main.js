@@ -86,7 +86,7 @@ var wingConfig = {
             return 0;
         },
         scale : function(t) {
-            return 0.5 - Math.abs(settings.shoulderCurve * t * t);
+            return (1 - Math.abs(settings.shoulderCurve * t * t)) / 2;
         },
         wingy : function() {
             return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
@@ -154,7 +154,7 @@ var wingConfig = {
             return 0;
         },
         scale : function(t) {
-            return 0.5 - Math.abs(settings.shoulderCurve * (1-t) * (1-t));
+            return (1 - Math.abs(settings.shoulderCurve * (1-t) * (1-t)))/2;
         },
         wingy : function() {
             return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
