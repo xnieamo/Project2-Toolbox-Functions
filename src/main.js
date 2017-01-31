@@ -207,7 +207,7 @@ function onLoad(framework) {
 
     // set skybox
     var loader = new THREE.CubeTextureLoader();
-    var urlPrefix = '/images/skymap/';
+    var urlPrefix = './images/skymap/';
 
     var skymap = new THREE.CubeTextureLoader().load([
         urlPrefix + 'px.jpg', urlPrefix + 'nx.jpg',
