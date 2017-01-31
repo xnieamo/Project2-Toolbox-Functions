@@ -11,6 +11,8 @@ var settings = {
 	speed : 100,
 	scale : 1,
 	size : 1,
+    wind : 0,
+    shoulderCurve : 0.5,
 	color : [255, 255, 255]
 };
 
@@ -25,6 +27,50 @@ var lambertWhite = new THREE.MeshLambertMaterial({
 	color: new THREE.Vector3(settings.color[0]/255, settings.color[1]/255, settings.color[2]/255),
  	side: THREE.DoubleSide 
 });
+
+// Config for parts of the wing
+var wingConfig = {
+    name : function(n, p) {
+        return 'feather' + p + n;
+    },
+    tip : {
+        part : 'tip',
+        pos : [0, 0, 0],
+        colorMat : lambertWhite,
+        x : function(b, t) {
+            return bias(b, t);
+        },
+        rotation : function(t) {
+            return Math.asin(1 - t);
+        },
+        scale : function(t) {
+            return t;
+        },
+        wingy : function() {
+            return (-Math.sin((new Date()).getTime() / settings.speed) + 1)/2;
+        }
+    },
+    shoulder : {
+        part : 'shoulder',
+        pos : [0, 0, 1],
+        colorMat : lambertWhite,
+        x : function(b, t) {
+            return bias(b, 1) - settings.shoulderCurve * t * t;
+        },
+        rotation : function(t) {
+            return 0;
+        },
+        scale : function(t) {
+            return 1;
+        },
+        wingy : function() {
+            return (Math.sin((new Date()).getTime() / settings.speed) + 1)/2;
+        }
+    }
+};
+
+var wing = [wingConfig.shoulder, 
+            wingConfig.tip];
 
 // called after the scene loads
 function onLoad(framework) {
@@ -60,20 +106,26 @@ function onLoad(framework) {
 
         // LOOK: This function runs after the obj has finished loading
         var featherGeo = obj.children[0].geometry;
+        for (var j = 0; j < wing.length; j++) {
+            var w = wing[j];
+            for (var i = 0; i < settings.nFeathers; i++) {
+                var z = 1 / settings.density * i;
+                var x = w.x(settings.bias, z);
+                var featherMesh = new THREE.Mesh(featherGeo, w.colorMat);
+                featherMesh.position.z = z + w.pos[2];
+                featherMesh.position.x = x + w.pos[0];
 
-        for (var i = 0; i < settings.nFeathers; i++) {
-        	var z = 1 / settings.density * i;
-        	var x = bias(settings.bias, z);
-        	var featherMesh = new THREE.Mesh(featherGeo, lambertWhite);
-        	featherMesh.position.z = z;
-        	featherMesh.position.x = x;
 
-        	featherMesh.rotation.y = Math.asin(1 - z);
+                featherMesh.scale.x = w.scale(z) * settings.size;
+
+                featherMesh.rotation.y = w.rotation(z);
 
 
-        	featherMesh.name = "feather" + i;
-        	scene.add(featherMesh);
+                featherMesh.name = wingConfig.name(w.part, i);
+                scene.add(featherMesh);
+            }
         }
+
 
     });
 
@@ -92,13 +144,17 @@ function onLoad(framework) {
 
     gui.add(settings, 'density', 0.1, 40);
 
-    gui.add(settings, 'bias', 0, 1);
+    gui.add(settings, 'bias', 0.05, 1);
 
     gui.add(settings, 'speed', 1, 1000);
 
     gui.add(settings, 'scale', 0.1, 50);
 
     gui.add(settings, 'size', 0.1, 5);
+
+    gui.add(settings, 'wind', 0, 90);
+
+    gui.add(settings, 'shoulderCurve', -1, 1);
 
     // Color menu
 	gui.addColor(settings, 'color').onChange(function(newVal){
@@ -109,31 +165,49 @@ function onLoad(framework) {
 // called on frame updates
 function onUpdate(framework) {
 
-    for (var i = 0; i < settings.nFeathers; i++) {
-    	var feather = framework.scene.getObjectByName("feather" + i);    
-	    if (feather !== undefined) {
-	    	
-	    	// Simply flap wing
-	        var z = 1 / settings.density * i;
-        	var x = bias(settings.bias, z);
-        	feather.position.z = z;
-        	feather.position.x = x;
+    var shoulderPos = wing[0].wingy();
+    var tipPos = wing[1].wingy();
 
-        	feather.scale.x = z * settings.size;
+    for (var j = 0; j < wing.length; j++) {
+        var w = wing[j];
+        for (var i = 0; i < settings.nFeathers; i++) {
+        	var feather = framework.scene.getObjectByName(wingConfig.name(w.part, i));    
+    	    if (feather !== undefined) {
+    	    	
+    	    	// Simply flap wing
+    	        var z = 1 / settings.density * i;
+            	var x = w.x(settings.bias, z);
+            	feather.position.z = z + w.pos[2];
+                feather.position.x = x + w.pos[0];
 
-        	var maxZ = settings.nFeathers / settings.density;
-        	
-        	var date = new Date();
-	    	feather.rotation.z = (Math.sin(date.getTime() / settings.speed) * settings.scale * Math.PI / 180);  
-	        	
-		    if (i < settings.density) {
-				feather.rotation.y = Math.asin(1 - z);
-		        feather.visible = true; 
-	    	} else {
-	    		feather.visible = false;
-	    	}
-   
-	    } 
+                if (j == 0) {
+                    feather.position.y = shoulderPos * z + (1-z) * tipPos;
+                } else {
+                    feather.position.y = w.wingy();
+                }
+                
+            	
+
+            	feather.scale.x = w.scale(z) * settings.size;
+
+            	var maxZ = settings.nFeathers / settings.density;
+            	
+            	var date = new Date();
+    	    	feather.rotation.z = (Math.sin(date.getTime() / settings.speed) * settings.scale * Math.PI / 180);  
+
+                // Wind effects
+                feather.rotation.x = settings.wind * Math.random() * Math.PI / 180;
+                feather.rotation.y = settings.wind * Math.random() * Math.PI / 180;
+    	        	
+    		    if (i < settings.density) {
+    				feather.rotation.y = w.rotation(z);
+    		        feather.visible = true; 
+    	    	} else {
+    	    		feather.visible = false;
+    	    	}
+       
+    	    } 
+        }
     }
 }
 
