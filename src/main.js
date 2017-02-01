@@ -18,8 +18,6 @@ var settings = {
     innerColor : [255, 128, 128]
 };
 
-var time = 0;
-
 function bias (b, t) {
 	return Math.pow(t, Math.log(b) / Math.log(0.5));
 };
@@ -37,12 +35,12 @@ var lambertGrey = new THREE.MeshLambertMaterial({
 });
 
 // Config for parts of the wing
-var wingConfig = {
+var wingParts = {
     name : function(n, p) {
         return 'feather' + p + n;
     },
-    tip : {
-        part : 'tip',
+    tipR : {
+        part : 'tipR',
         pos : [0, 0, 0],
         colorMat : lambertWhite,
         x : function(b, t) {
@@ -58,8 +56,8 @@ var wingConfig = {
             return (-Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
         }
     },
-    shoulder : {
-        part : 'shoulder',
+    shoulderR : {
+        part : 'shoulderR',
         pos : [0, 0, 1],
         colorMat : lambertWhite,
         x : function(b, t) {
@@ -75,8 +73,8 @@ var wingConfig = {
             return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
         }
     },
-    shoulderInside : {
-        part : 'shoulderInside',
+    shoulderInsideR : {
+        part : 'shoulderInsideR',
         pos : [0, 0.2, 1],
         colorMat : lambertGrey,
         x : function(b, t) {
@@ -92,8 +90,8 @@ var wingConfig = {
             return (Math.sin((new Date()).getTime() / settings.speedF) + 1)/2;
         }
     },
-    tipInside : {
-        part : 'tipInside',
+    tipInsideR : {
+        part : 'tipInsideR',
         pos : [0, 0.2, 0],
         colorMat : lambertGrey,
         x : function(b, t) {
@@ -179,15 +177,14 @@ var wingConfig = {
     },
 };
 
-var wing = [wingConfig.shoulder, 
-            wingConfig.tip,
-            wingConfig.shoulderInside,
-            wingConfig.tipInside,
-            wingConfig.shoulderL,
-            wingConfig.tipL,
-            wingConfig.shoulderInsideL,
-            wingConfig.tipInsideL,];
-
+var wing = [wingParts.shoulderR, 
+            wingParts.tipR,
+            wingParts.shoulderInsideR,
+            wingParts.tipInsideR,
+            wingParts.shoulderL,
+            wingParts.tipL,
+            wingParts.shoulderInsideL,
+            wingParts.tipInsideL];
 
 // called after the scene loads
 function onLoad(framework) {
@@ -226,19 +223,20 @@ function onLoad(framework) {
         for (var j = 0; j < wing.length; j++) {
             var w = wing[j];
             for (var i = 0; i < settings.nFeathers; i++) {
+                var featherMesh = new THREE.Mesh(featherGeo, w.colorMat);
+
+                // Position
                 var z = 1 / settings.density * i;
                 var x = w.x(settings.bias, z);
-                var featherMesh = new THREE.Mesh(featherGeo, w.colorMat);
                 featherMesh.position.z = z + w.pos[2];
                 featherMesh.position.x = x + w.pos[0];
 
-
+                // Size and orientation
                 featherMesh.scale.x = w.scale(z) * settings.size;
-
                 featherMesh.rotation.y = w.rotation(z);
 
-
-                featherMesh.name = wingConfig.name(w.part, i);
+                // Labeling
+                featherMesh.name = wingParts.name(w.part, i);
                 scene.add(featherMesh);
             }
         }
@@ -293,7 +291,7 @@ function onUpdate(framework) {
     for (var j = 0; j < wing.length; j++) {
         var w = wing[j];
         for (var i = 0; i < settings.nFeathers; i++) {
-        	var feather = framework.scene.getObjectByName(wingConfig.name(w.part, i));    
+        	var feather = framework.scene.getObjectByName(wingParts.name(w.part, i));    
     	    if (feather !== undefined) {
     	    	
     	    	// Update feather position
@@ -304,7 +302,7 @@ function onUpdate(framework) {
 
                 // Joint flap
                 if (j == 0 || j == 2) {
-                    feather.position.y = shoulderPos * z + (1-z) * tipPos;
+                    feather.position.y = z * shoulderPos + (1-z) * tipPos;
                 } else if (j == 4 || j == 6) {
                     feather.position.y = (1-z) * shoulderPos + z * tipPos;
                 } else {
@@ -322,8 +320,9 @@ function onUpdate(framework) {
                 feather.rotation.x = settings.wind * Math.random() * Math.PI / 180;
                 feather.rotation.y = settings.wind * Math.random() * Math.PI / 180;
     	        	
+                // Update visual density
     		    if (i < settings.density) {
-    				// feather.rotation.y = w.rotation(z);
+    				feather.rotation.y = w.rotation(z);
     		        feather.visible = true; 
     	    	} else {
     	    		feather.visible = false;
