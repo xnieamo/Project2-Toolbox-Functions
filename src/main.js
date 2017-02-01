@@ -5,14 +5,14 @@ const THREE = require('three'); // older modules are imported like this. You sho
 import Framework from './framework'
 
 var settings = {
-	density : 40.0,
+	density : 50.0,
 	bias : 0.5,
 	nFeathers : 50,
-	speed : 100,
-    speedF : 100,
+	speed : 500,
+    speedF : 500,
 	scale : 1,
 	size : 1,
-    wind : 0,
+    wind : 5,
     shoulderCurve : 0.5,
 	outerColor : [255, 255, 255],
     innerColor : [255, 128, 128]
